@@ -14,8 +14,40 @@ void callback(int a, int b)
 
 }
 
+
+#define BUFFER_SIZE (uint16_t)10
 int main()
 {
+	uint8_t buffer[BUFFER_SIZE];
+	memset(buffer, 0, BUFFER_SIZE);
+
+	circularBuffer_t circularBuffer =
+	{
+		/*uint16_t bufferSize*/BUFFER_SIZE,
+		/*uint8_t* byteArray, &buffer[0] ==== buffer */buffer,
+		/*uint16_t readIndex,*/0,
+		/*uint16_t writeIndex,*/0,
+		/*uint8_t overflow,*/0
+	};
+
+	int i = 0;
+	/* Ne metto 7 */
+	for (i = 0; i < 7; i++)
+	{
+		addChar(&circularBuffer, (uint8_t)(i+1));
+	}
+
+	uint8_t val = 0;
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val);
+	popChar(&circularBuffer, &val); /* Qui ritorna empty perchè l'ho svuotato tutto */
+
 	dataReadyFptr_t gfd = callback;
 
 	uint8_t byteVar = 0; /* 0,255 */

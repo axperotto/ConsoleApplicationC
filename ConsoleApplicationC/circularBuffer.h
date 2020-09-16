@@ -13,6 +13,7 @@ typedef struct _circularBuffer {
     uint8_t* byteArray;
     uint16_t readIndex;
     uint16_t writeIndex;
+    uint8_t overflow;
 } circularBuffer_t;
 
 /* Mette il carattere nella posizione i-esima e incrementa l'indixe in maniera circolare */

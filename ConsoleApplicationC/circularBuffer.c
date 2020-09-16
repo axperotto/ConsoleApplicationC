@@ -7,20 +7,50 @@ void addChar(circularBuffer_t* circularBufferPtr, uint8_t newChar)
 	circularBufferPtr->byteArray[writeIndex] = newChar;
 
 	/* Incrementare l'indice in maniera circolare */
-	circularBufferPtr->writeIndex =
-		(writeIndex + 1);
+	circularBufferPtr->writeIndex++;
 
-	/* Vede il trabocco del bicchiere */
-	circularBufferPtr->writeIndex = circularBufferPtr->writeIndex % circularBufferPtr->bufferSize;
-
-	/* Alternativa con l'if */
 	if (circularBufferPtr->writeIndex >= circularBufferPtr->bufferSize)
 	{
 		circularBufferPtr->writeIndex = 0;
+		circularBufferPtr->overflow++;
 	}
 }
 
 bufferState_t  popChar(circularBuffer_t* circularBufferPtr, uint8_t* outChar)
 {
+	bufferState_t retVal = BUFFER_EMPTY;
 
+	if (circularBufferPtr->overflow == 0)
+	{
+		if (circularBufferPtr->readIndex != circularBufferPtr->writeIndex)
+		{
+			retVal = BUFFER_OK;
+
+			/* Dereferenziamo il puntatore di outChar */
+			uint16_t readIndex = circularBufferPtr->readIndex++;
+			*outChar = circularBufferPtr->byteArray[readIndex];
+
+			if (circularBufferPtr->readIndex >= circularBufferPtr->bufferSize)
+			{
+				circularBufferPtr->readIndex = 0;
+			}
+		}
+	}
+	else
+	{
+		retVal = BUFFER_OK;
+
+		/* Dereferenziamo il puntatore di outChar */
+		uint16_t readIndex = circularBufferPtr->readIndex++;
+		*outChar = circularBufferPtr->byteArray[readIndex];
+
+		if (circularBufferPtr->readIndex >= circularBufferPtr->bufferSize)
+		{
+			circularBufferPtr->readIndex = 0;
+			circularBufferPtr->overflow = 0;
+		}
+			
+	}
+
+	return retVal;
 }
