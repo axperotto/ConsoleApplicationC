@@ -27,6 +27,7 @@ namespace ConsoleAppSerial
             {
                 byte byteApp = 0;
                 bufferState_t uartState = bufferState_t.BUFFER_EMPTY;
+
                 do
                 {
                     uartState = UartBuffer.popChar(out byteApp);

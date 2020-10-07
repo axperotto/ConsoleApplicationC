@@ -37,5 +37,10 @@ namespace ConsoleAppSerial
         {
 
         }
+
+        public void SendCommand(byte[] bytesToSend)
+        {
+            serialPort.Write(bytesToSend, 0, bytesToSend.Length);
+        }
     }
 }

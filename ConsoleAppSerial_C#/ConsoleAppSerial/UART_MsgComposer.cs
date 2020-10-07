@@ -16,8 +16,8 @@ namespace ConsoleAppSerial
     {
         FRAMEVERSION = 0,
         MESSAGETYPE,
-        COMMAND_FIRSTNIBBLE,
-        COMMAND_LASTNIBBLE,
+        COMMAND_MSB_NIBBLE,
+        COMMAND_LSB_NIBBLE,
         DATALENGTH,
         OPTIONALDATA,
         CRC
@@ -30,12 +30,18 @@ namespace ConsoleAppSerial
         UART_MsgComposer_State_t uART_MsgComposer_State = UART_MsgComposer_State_t.WAITING_FOR_BC;
         int subBufferIndex = 0;
         MessageIndexes_t messageIndexes_T = MessageIndexes_t.FRAMEVERSION;
+        byte actualCRC = 0xBC;
+
+        public event EventHandler<FrameFormat> OnFrameReceived;
+
         private void composeFrame(byte newChar)
         {
             switch (messageIndexes_T)
             {
                 case MessageIndexes_t.FRAMEVERSION:
-                    if(newChar == 0x01)
+                    actualCRC = (byte)(actualCRC ^ newChar);
+
+                    if (newChar == 0x01)
                     {
                         actualFrame.FrameVersion = 0x01;
                         messageIndexes_T++;
@@ -48,6 +54,7 @@ namespace ConsoleAppSerial
                     }
                     break;
                 case MessageIndexes_t.MESSAGETYPE:
+                    actualCRC = (byte)(actualCRC ^ newChar);
                     actualFrame.MessageType = newChar;
                     messageIndexes_T++;
                     break;
@@ -56,16 +63,19 @@ namespace ConsoleAppSerial
                  * 11111100 00000100
                  * 11111100 01111110
                  * */
-                case MessageIndexes_t.COMMAND_FIRSTNIBBLE:
+                case MessageIndexes_t.COMMAND_MSB_NIBBLE:
+                    actualCRC = (byte)(actualCRC ^ newChar);
                     actualFrame.Command = 0;
-                    actualFrame.Command = newChar;
-                    messageIndexes_T++;
-                    break;
-                case MessageIndexes_t.COMMAND_LASTNIBBLE:
                     actualFrame.Command = (UInt16)(actualFrame.Command | newChar << 8);
                     messageIndexes_T++;
                     break;
+                case MessageIndexes_t.COMMAND_LSB_NIBBLE:
+                    actualCRC = (byte)(actualCRC ^ newChar);
+                    actualFrame.Command = (UInt16)(actualFrame.Command | newChar);
+                    messageIndexes_T++;
+                    break;
                 case MessageIndexes_t.DATALENGTH:
+                    actualCRC = (byte)(actualCRC ^ newChar);
                     actualFrame.DataLength = newChar;
                     subBufferIndex = 0;
                     if(actualFrame.DataLength == 0)
@@ -78,6 +88,7 @@ namespace ConsoleAppSerial
                     }
                     break;
                 case MessageIndexes_t.OPTIONALDATA:
+                    actualCRC = (byte)(actualCRC ^ newChar);
                     actualFrame.OptionalData[subBufferIndex++] = newChar;
                     if(subBufferIndex == actualFrame.DataLength)
                     {
@@ -85,9 +96,51 @@ namespace ConsoleAppSerial
                     }
                     break;
                 case MessageIndexes_t.CRC:
-                    messageIndexes_T++;
+                    /*
+                     * 101110 ^
+                     * 001010 =
+                     * 100100
+                     */
+                    actualCRC = (byte)~actualCRC;
+                    actualFrame.IsCRC_ok = ((actualCRC ^ newChar) == 0);
+
+                    if (OnFrameReceived != null)
+                    {
+                        OnFrameReceived(this, actualFrame);
+                    }
+
+                    /* Resetto le macchina a stati perchè ho finito */
+                    uART_MsgComposer_State = UART_MsgComposer_State_t.WAITING_FOR_BC;
+                    messageIndexes_T = MessageIndexes_t.FRAMEVERSION;
                     break;
             }
+        }
+
+        public byte[] GetBytesStream(FrameFormat frameRequestFwVersion)
+        {
+            byte[] retVal = new byte[7 + frameRequestFwVersion.DataLength];
+
+            retVal[0] = frameRequestFwVersion.Header;
+            retVal[1] = frameRequestFwVersion.FrameVersion;
+            retVal[2] = frameRequestFwVersion.MessageType;
+            retVal[3] = (byte)((frameRequestFwVersion.Command & 0xFF00) >> 8);
+            retVal[4] = (byte)(frameRequestFwVersion.Command & 0x00FF);
+            retVal[5] = frameRequestFwVersion.DataLength;
+
+            for (int n = 0; n < frameRequestFwVersion.DataLength; n++)
+            {
+                retVal[6 + n] = frameRequestFwVersion.OptionalData[n];
+            }
+
+            byte crc = 0;
+            for(int n = 0;n< 6 + frameRequestFwVersion.DataLength;n++)
+            {
+                crc = (byte)(crc ^ frameRequestFwVersion.OptionalData[n]);
+            }
+
+            retVal[7 + frameRequestFwVersion.DataLength - 1] = crc;
+
+            return retVal;
         }
 
         public void AddChar(byte newChar)

@@ -8,8 +8,9 @@ namespace ConsoleAppSerial
 {
     public class FrameFormat
     {
-        public byte Header = 0;
-        public byte FrameVersion = 0;
+        public bool IsCRC_ok = true;
+        public byte Header = 0xBC;
+        public byte FrameVersion = 1;
         public byte MessageType = 0;
         public UInt16 Command = 0;
         public byte DataLength = 0;
